@@ -1,0 +1,33 @@
+@startuml
+!define AWSPUML https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v20.0/dist
+title C4 Container Diagram - Solution 1 (Orchestrator-based failover)
+
+Person(bank_service, "Bank Service", "Initiates notification requests")
+Person(user, "User", "Receives notifications")
+
+System_Boundary(np, "Notification Platform") {
+    Container(api, "Notification API", "Python/FastAPI", "Receives notification requests")
+    Container(broker, "Message Broker", "Kafka/RabbitMQ", "Buffers delivery commands")
+    Container(orchestrator, "Delivery Orchestrator", "Python service", "Controls retries, failover and deduplication")
+    ContainerDb(state_db, "Delivery State Store", "PostgreSQL", "Stores delivery state and attempts")
+    Container(cache, "Preferences Cache", "Redis", "Caches user preferences and routing hints")
+    Container(obs, "Observability Stack", "Prometheus/Grafana/Loki/Otel", "Metrics, logs, traces")
+}
+
+System_Ext(push_provider, "Push Provider", "External push gateway")
+System_Ext(sms_provider, "SMS Provider", "External SMS provider")
+System_Ext(email_provider, "Email Provider", "External email provider")
+
+Rel(bank_service, api, "Create transactional notification")
+Rel(api, broker, "Publish delivery command")
+Rel(broker, orchestrator, "Consume command")
+Rel(orchestrator, cache, "Read preferences")
+Rel(orchestrator, state_db, "Read/write delivery state")
+Rel(orchestrator, push_provider, "Send push")
+Rel(orchestrator, sms_provider, "Send SMS on failover")
+Rel(orchestrator, email_provider, "Send email on failover")
+Rel(push_provider, user, "Deliver notification")
+Rel(sms_provider, user, "Deliver notification")
+Rel(email_provider, user, "Deliver notification")
+Rel(orchestrator, obs, "Emit metrics/logs/traces")
+@enduml

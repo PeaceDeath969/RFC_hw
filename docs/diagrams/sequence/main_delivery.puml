@@ -1,0 +1,27 @@
+@startuml
+title Main Delivery Scenario - Transactional Notification
+
+actor "Bank Service" as Bank
+participant "Notification API" as API
+queue "Broker" as Broker
+participant "Delivery Orchestrator" as Orch
+database "State Store" as DB
+participant "Preferences Cache" as Cache
+participant "Push Adapter" as Push
+participant "Push Provider" as PushProvider
+
+Bank -> API: POST /notifications (transactional)
+API -> Broker: publish delivery command
+API --> Bank: accepted
+
+Broker -> Orch: delivery command
+Orch -> DB: create delivery state = PENDING
+Orch -> Cache: get user preferences
+Cache --> Orch: preferences
+Orch -> Push: send(notification)
+Push -> PushProvider: provider API request
+PushProvider --> Push: delivered
+Push --> Orch: DELIVERED
+Orch -> DB: update state = DELIVERED\nsuccess_channel = PUSH
+Orch -> Orch: stop further attempts
+@enduml

@@ -1,0 +1,45 @@
+@startuml
+title C4 Container Diagram - Solution 2 (Event-driven choreography)
+
+Person(bank_service, "Bank Service", "Initiates notification requests")
+Person(user, "User", "Receives notifications")
+
+System_Boundary(np, "Notification Platform") {
+    Container(api, "Notification API", "Python/FastAPI", "Receives notification requests")
+    Container(event_bus, "Event Bus", "Kafka", "Publishes and routes notification events")
+    Container(policy, "Policy Engine", "Python service", "Calculates delivery plan")
+    Container(state_service, "Delivery State Service", "Python service", "Stores and aggregates delivery state")
+    Container(failover, "Failover Manager", "Python service", "Triggers next channel on failure")
+    Container(push_worker, "Push Worker", "Python service", "Push delivery attempts")
+    Container(sms_worker, "SMS Worker", "Python service", "SMS delivery attempts")
+    Container(email_worker, "Email Worker", "Python service", "Email delivery attempts")
+    ContainerDb(state_db, "State DB", "PostgreSQL", "Delivery state storage")
+    Container(obs, "Observability Stack", "Prometheus/Grafana/Loki/Otel", "Metrics, logs, traces")
+}
+
+System_Ext(push_provider, "Push Provider", "External push gateway")
+System_Ext(sms_provider, "SMS Provider", "External SMS provider")
+System_Ext(email_provider, "Email Provider", "External email provider")
+
+Rel(bank_service, api, "Create notification")
+Rel(api, event_bus, "Publish notification.created")
+Rel(event_bus, policy, "Consume")
+Rel(policy, event_bus, "Publish attempt.requested")
+Rel(event_bus, push_worker, "Push attempt")
+Rel(event_bus, sms_worker, "SMS attempt")
+Rel(event_bus, email_worker, "Email attempt")
+Rel(push_worker, push_provider, "Send push")
+Rel(sms_worker, sms_provider, "Send SMS")
+Rel(email_worker, email_provider, "Send email")
+Rel(push_worker, event_bus, "Publish attempt result")
+Rel(sms_worker, event_bus, "Publish attempt result")
+Rel(email_worker, event_bus, "Publish attempt result")
+Rel(event_bus, failover, "Consume failed/timeout events")
+Rel(failover, event_bus, "Publish next attempt")
+Rel(event_bus, state_service, "Consume all status events")
+Rel(state_service, state_db, "Read/write state")
+Rel(state_service, obs, "Emit metrics/logs/traces")
+Rel(push_provider, user, "Deliver notification")
+Rel(sms_provider, user, "Deliver notification")
+Rel(email_provider, user, "Deliver notification")
+@enduml
